@@ -4,7 +4,10 @@ pragma solidity ^0.8.13;
 import "./external/IMarket.sol";
 import "./external/IMarketManagerModule.sol";
 
+import "openzeppelin-contracts/utils/Strings.sol";
+
 contract LotteryMarket is IMarket {
+    using Strings for uint256;
 
     IMarketManagerModule synthetix;
     uint128 public marketId;
@@ -44,7 +47,7 @@ contract LotteryMarket is IMarket {
 
     function name(uint128 _marketId) external override view returns (string memory n) {
         if (_marketId == marketId) {
-            n = "Lottery (ticket price = , jackpot = )";
+            n = string.concat("Lottery (ticket price = ", jackpot.toString(), ", jackpot = ", ticketCost.toString(), ")");
         }
     }
 
