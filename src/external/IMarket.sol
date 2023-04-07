@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity >=0.8.11 <0.9.0;
 
-import "./IERC165.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 
 /// @title Interface a Market needs to adhere.
 interface IMarket is IERC165 {

@@ -1,0 +1,52 @@
+name = "lottery-market"
+version = "0.1.0"
+description = "Synthetix market which allows for participants to buy tickets which have a certain percentage chance of being picked"
+
+[setting.jackpot]
+defaultValue = "1000000000000000000000"
+
+[setting.ticketCost]
+defaultValue = "1000000000000000000"
+
+[setting.feePercent]
+defaultValue = "10000000000000000"
+
+[setting.salt]
+defaultValue = "lottery"
+
+[import.vrf]
+source = "chainlink-vrf:2.0.0"
+
+[import.synthetix]
+source = "synthetix:3.0.4-alpha.0"
+
+[invoke.allowAll]
+target = ["synthetix.CoreProxy"]
+fromCall.func = "owner"
+func = "setFeatureFlagAllowAll"
+args = [
+    "<%= formatBytes32String('registerMarket') %>",
+    true
+]
+
+depends = ["import.synthetix"]
+
+[contract.LotteryMarket]
+artifact = "LotteryMarket"
+create2 = true
+args = [
+    "<%= imports.synthetix.contracts.CoreProxy.address %>",
+    "<%= imports.vrf.imports.linkAggregator.imports.linkToken.contracts.Token.address %>",
+    "<%= imports.vrf.contracts.VRFWrapper.address %>",
+    "<%= settings.jackpot %>",
+    "<%= settings.ticketCost %>",
+    "<%= settings.feePercent %>"
+]
+
+depends = ["import.vrf", "invoke.allowAll"]
+
+[invoke.registerMarket]
+target = ["LotteryMarket"]
+func = "registerMarket"
+
+depends = ["contract.LotteryMarket"]
