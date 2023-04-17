@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity >=0.8.11 <0.9.0;
 
-import "openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import "lib/forge-std/src/interfaces/IERC165.sol";
 
 /// @title Interface a Market needs to adhere.
 interface IMarket is IERC165 {
@@ -13,5 +13,5 @@ interface IMarket is IERC165 {
 
     /// @notice returns the amount of collateral which should (in addition to `reportedDebt`) be prevented from withdrawing from this market
     /// if your market does not require locking, set this to `0`
-    function locked(uint128 marketId) external view returns (uint256);
+    function miniimumCredit(uint128 marketId) external view returns (uint256);
 }

@@ -2,16 +2,12 @@
 pragma solidity ^0.8.13;
 
 import "./external/IMarket.sol";
-import "./external/IAssociatedSystemsModule.sol";
-import "./external/ISynthetixCore.sol";
+import "./external/IMarketManagerModule.sol";
 
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-
-import "chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+import "lib/forge-std/src/interfaces/IERC20.sol";
+import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
 contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
-    using Strings for uint256;
 
     /**
      * If too many people guess the same number, the contract could run out of money if that number is drawn.
@@ -133,7 +129,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
 
     function name(uint128 _marketId) external override view returns (string memory n) {
         if (_marketId == marketId) {
-            n = string.concat("Lottery (ticket price = ", jackpot.toString(), ", jackpot = ", ticketCost.toString(), ")");
+            n = string(abi.encodePacked("Market ", bytes32(uint256(_marketId))));
         }
     }
 
@@ -141,7 +137,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         return 0;
     }
 
-    function locked(uint128 _marketId) external override view returns (uint256 l) {
+    function minimumCredit(uint128 _marketId) external override view returns (uint256 l) {
         if (_marketId == marketId) {
             // all collateral is locked during the draw
             if (isDrawing) {
