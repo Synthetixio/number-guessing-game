@@ -38,4 +38,7 @@ depends = ["import.vrf", "import.synthetix"]
 target = ["LotteryMarket"]
 func = "registerMarket"
 
+extra.marketId.event = "LotteryRegistered"
+extra.marketId.arg = 0
+
 depends = ["contract.LotteryMarket"]

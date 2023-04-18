@@ -9,6 +9,8 @@ import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
 contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
 
+    event LotteryRegistered(uint128 indexed marketId);
+
     /**
      * If too many people guess the same number, the contract could run out of money if that number is drawn.
      * To prevent this from happening, an error is thrown if there are too many tickets drawn for a single number
@@ -50,6 +52,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     function registerMarket() external {
         if (marketId == 0) {
             marketId = synthetix.registerMarket(address(this));
+            emit LotteryRegistered(marketId);
         }
     }
 

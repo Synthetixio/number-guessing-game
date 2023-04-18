@@ -10,3 +10,16 @@ source = "synthetix:latest"
 preset = "with-synthetix-sandbox"
 
 depends = ["import.sandbox"]
+
+[invoke.setCollateralConfig]
+target = ["synthetix.CoreProxy"]
+fromCall.func = "owner"
+func = "setPoolConfiguration"
+args = [
+    1,
+    [
+        { marketId = '<%= extras.marketId %>', weightD18 = '1', maxDebtShareValueD18 = "<%= parseEther('1').toString() %>" }
+    ]
+]
+
+depends = ["invoke.registerMarket"]

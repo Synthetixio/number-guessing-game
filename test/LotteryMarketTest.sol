@@ -38,9 +38,9 @@ contract LotteryMarketTest is Test {
         vm.startPrank(ownerAddress);
 
         // delegate collateral to the lottery market instead of the sandbox market
-        MarketConfiguration.Data[] memory marketConfigs = new MarketConfiguration.Data[](1);
-        marketConfigs[0] = MarketConfiguration.Data(market.marketId(), 1e18, 1e18);
-        synthetixCore.setPoolConfiguration(1, marketConfigs);
+        //MarketConfiguration.Data[] memory marketConfigs = new MarketConfiguration.Data[](1);
+        //marketConfigs[0] = MarketConfiguration.Data(market.marketId(), 1e18, 1e18);
+        //synthetixCore.setPoolConfiguration(1, marketConfigs);
 
         // transfer test tokens to the test contract rather than using prank all the time
         usdToken.transfer(myAddress, 100 * 1e18);
