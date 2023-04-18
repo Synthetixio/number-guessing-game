@@ -20,17 +20,6 @@ source = "chainlink-vrf:2.0.0"
 [import.synthetix]
 source = "synthetix:3.0.4-alpha.0"
 
-[invoke.allowAll]
-target = ["synthetix.CoreProxy"]
-fromCall.func = "owner"
-func = "setFeatureFlagAllowAll"
-args = [
-    "<%= formatBytes32String('registerMarket') %>",
-    true
-]
-
-depends = ["import.synthetix"]
-
 [contract.LotteryMarket]
 artifact = "LotteryMarket"
 create2 = true
@@ -43,7 +32,7 @@ args = [
     "<%= settings.feePercent %>"
 ]
 
-depends = ["import.vrf", "invoke.allowAll"]
+depends = ["import.vrf", "import.synthetix"]
 
 [invoke.registerMarket]
 target = ["LotteryMarket"]

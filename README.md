@@ -234,11 +234,17 @@ In order to initialize a request with Chainlink VRF, LINK tokens must be provide
 
 If you run `forge build`, you should find that the code compiles without error. If you are having trouble, feel free to compare your code with the [official repository]().
 
-We will now build some tests to make sure that the basic functionality of the lottery is intact. Normally, we would have to either mock Synthetix and Chainlink VRF or figure out how to deploy them. However, Synthetix uses a tool called [Cannon]() which makes this process much easier. To integrate with Cannon, the CLI needs to be installed via NPM:
+We will now build some tests to make sure that the basic functionality of the lottery is intact. Normally, we would have to either mock Synthetix and Chainlink VRF or figure out how to deploy them. However, Synthetix uses a tool called [Cannon](https://usecannon.com) which makes this process much easier. To integrate with Cannon, the CLI needs to be installed via NPM:
 
 ```
 npm install -g @usecannon/cli
 cannon --version
+```
+
+We also use a tool `abi-to-sol` to generate interfaces from their on-chain definitions:
+
+```
+npm install -g abi-to-sol
 ```
 
 To integrate cannon with foundry, the `cannon-std` library must be imported for use in the tests as well:
@@ -302,6 +308,23 @@ cannon run lottery-market:1.0.0 --fork $GOERLI_RPC --impersonate 0x48914229deDd5
 ```
 
 ## Building a simple UI
+
+Rainbow kit provides a great starting point:
+
+```
+npm init @rainbow-me/rainbowkit@latest
+```
+
+On the first (and only) prompt, name the project `ui`.
+
+After everything is done, we can open `_app.tsx` and, in `getDefaultWallets` initializer, change `appName` to `Lottery Market`. Optionally you can add your own rainbow kit project ID as well.
+
+Now lets open `index.tsx` and lets put in our app code:
+* change the `<title>` tag to be `Lottery Market`
+* change `Welcome to <a href="">RainbowKit</a> + <a href="">wagmi</a> +{' '}<a href="https://nextjs.org">Next.js!</a>` to be `Welcome to the Lottery!`
+* delete the rest of the code after the welcome in the `<main>` tag
+
+
 
 ## Deploying the UI to IPFS
 
