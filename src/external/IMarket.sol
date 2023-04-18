@@ -13,5 +13,5 @@ interface IMarket is IERC165 {
 
     /// @notice returns the amount of collateral which should (in addition to `reportedDebt`) be prevented from withdrawing from this market
     /// if your market does not require locking, set this to `0`
-    function miniimumCredit(uint128 marketId) external view returns (uint256);
+    function minimumCredit(uint128 marketId) external view returns (uint256);
 }

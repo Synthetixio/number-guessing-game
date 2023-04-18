@@ -7,7 +7,7 @@ import "../src/LotteryMarket.sol";
 
 import "./fakes/AggregatorV3Mock.sol";
 
-import "./interfaces/IOracleManager.sol";
+import "../src/external/IOracleManager.sol";
 
 import "forge-std/console.sol";
 
@@ -39,7 +39,7 @@ contract LotteryMarketTest is Test {
         AggregatorV3Mock fakeAggregator = new AggregatorV3Mock();
         fakeAggregator.mockSetCurrentPrice(1e18);
         bytes32 oracleNodeId = oracleManager.registerNode(
-            NodeType.CHAINLINK, 
+            3, // = NodeType.CHAINLINK
             abi.encode(address(fakeAggregator), 0, 18), 
             new bytes32[](0)
         );
@@ -114,7 +114,7 @@ contract LotteryMarketTest is Test {
 
     function testStartDrawLocksCollateral() external {
         market.startDraw(10 * 1e18);
-        assert(market.locked(1) > 1000 * 1e18);
+        assert(market.minimumCredit(1) > 1000 * 1e18);
     }
 
     function testCanDrawTicketWithoutWinner() external {

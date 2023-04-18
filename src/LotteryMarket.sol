@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "./external/IMarket.sol";
-import "./external/IMarketManagerModule.sol";
+import "./external/ISynthetixCore.sol";
 
 import "lib/forge-std/src/interfaces/IERC20.sol";
 import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
