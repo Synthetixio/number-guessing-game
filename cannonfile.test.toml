@@ -1,0 +1,12 @@
+include = [
+    "cannonfile.toml"
+]
+
+[import.sandbox]
+source = "synthetix-sandbox:latest"
+
+[invoke.registerMarket]
+target = ["LotteryMarket"]
+func = "registerMarket"
+
+depends = ["contract.LotteryMarket", "import.sandbox"]
