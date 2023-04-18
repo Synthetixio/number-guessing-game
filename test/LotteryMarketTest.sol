@@ -31,42 +31,19 @@ contract LotteryMarketTest is Test {
         IOracleManager oracleManager = IOracleManager(vm.getAddress("synthetix.oracle_manager.Proxy"));
         usdToken = IERC20(vm.getAddress("synthetix.USDProxy"));
         vrf = vm.getAddress("vrf.VRFWrapper");
-        //linkToken = market.linkToken();
         linkToken = IERC20(vm.getAddress("vrf.linkAggregator.linkToken.Token"));
-
-
-        // create a fake aggregator for the token
-        AggregatorV3Mock fakeAggregator = new AggregatorV3Mock();
-        fakeAggregator.mockSetCurrentPrice(1e18);
-        bytes32 oracleNodeId = oracleManager.registerNode(
-            3, // = NodeType.CHAINLINK
-            abi.encode(address(fakeAggregator), 0, 18), 
-            new bytes32[](0)
-        );
 
         // delegate liquidity towards the market
         address myAddress = address(this);
         vm.startPrank(ownerAddress);
 
-        synthetixCore.configureCollateral(CollateralConfiguration.Data(
-            true, 1**18, 1**18, 1 ** 1e18, oracleNodeId, address(linkToken), 1 ** 1e18
-        ));
-        synthetixCore.setFeatureFlagAllowAll("createPool", true);
-        synthetixCore.createPool(1, ownerAddress);
-
+        // delegate collateral to the lottery market instead of the sandbox market
         MarketConfiguration.Data[] memory marketConfigs = new MarketConfiguration.Data[](1);
-        marketConfigs[0] = MarketConfiguration.Data(1, 1e18, 1e18);
+        marketConfigs[0] = MarketConfiguration.Data(market.marketId(), 1e18, 1e18);
         synthetixCore.setPoolConfiguration(1, marketConfigs);
 
-        synthetixCore.createAccount(1);
-        linkToken.approve(address(synthetixCore), type(uint256).max);
-        synthetixCore.deposit(1, address(linkToken), linkToken.balanceOf(ownerAddress) / 2);
-        synthetixCore.delegateCollateral(1, 1, address(linkToken), 5000 * 1e18, 1e18);
-
-        // acquire some snxUSD
-        synthetixCore.mintUsd(1, 1, address(linkToken), 100 * 1e18);
+        // transfer test tokens to the test contract rather than using prank all the time
         usdToken.transfer(myAddress, 100 * 1e18);
-
         linkToken.transfer(myAddress, linkToken.balanceOf(ownerAddress) / 2);
 
         vm.stopPrank();
@@ -114,7 +91,7 @@ contract LotteryMarketTest is Test {
 
     function testStartDrawLocksCollateral() external {
         market.startDraw(10 * 1e18);
-        assert(market.minimumCredit(1) > 1000 * 1e18);
+        assert(market.minimumCredit(market.marketId()) > 1000 * 1e18);
     }
 
     function testCanDrawTicketWithoutWinner() external {

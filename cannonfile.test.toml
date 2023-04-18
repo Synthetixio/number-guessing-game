@@ -5,8 +5,8 @@ include = [
 [import.sandbox]
 source = "synthetix-sandbox:latest"
 
-[invoke.registerMarket]
-target = ["LotteryMarket"]
-func = "registerMarket"
+[import.synthetix]
+source = "synthetix:latest"
+preset = "with-synthetix-sandbox"
 
-depends = ["contract.LotteryMarket", "import.sandbox"]
+depends = ["import.sandbox"]
