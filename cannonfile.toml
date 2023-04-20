@@ -1,6 +1,6 @@
 name = "lottery-market"
 version = "0.1.0"
-description = "Synthetix market which allows for participants to buy tickets which have a certain percentage chance of being picked"
+description = "Demo market for Synthetix V3"
 
 [setting.jackpot]
 defaultValue = "1000000000000000000000"
@@ -31,14 +31,11 @@ args = [
     "<%= settings.ticketCost %>",
     "<%= settings.feePercent %>"
 ]
-
 depends = ["import.vrf", "import.synthetix"]
 
 [invoke.registerMarket]
 target = ["LotteryMarket"]
 func = "registerMarket"
-
 extra.marketId.event = "LotteryRegistered"
 extra.marketId.arg = 0
-
 depends = ["contract.LotteryMarket"]

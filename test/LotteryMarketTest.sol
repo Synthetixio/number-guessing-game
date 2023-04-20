@@ -7,8 +7,6 @@ import "../src/LotteryMarket.sol";
 
 import "./fakes/AggregatorV3Mock.sol";
 
-import "../src/external/IOracleManager.sol";
-
 import "forge-std/console.sol";
 
 contract LotteryMarketTest is Test {
@@ -28,7 +26,6 @@ contract LotteryMarketTest is Test {
     function setUp() external {
         market = LotteryMarket(vm.getAddress("LotteryMarket"));
         synthetixCore = ISynthetixCore(vm.getAddress("synthetix.CoreProxy"));
-        IOracleManager oracleManager = IOracleManager(vm.getAddress("synthetix.oracle_manager.Proxy"));
         usdToken = IERC20(vm.getAddress("synthetix.USDProxy"));
         vrf = vm.getAddress("vrf.VRFWrapper");
         linkToken = IERC20(vm.getAddress("vrf.linkAggregator.linkToken.Token"));

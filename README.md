@@ -76,9 +76,14 @@ forge install smartcontractkit/chainlink --no-commit
 
 All markets in Synthetix V3 must implement the [IMarket](https://github.com/Synthetixio/synthetix-v3/blob/main/protocol/synthetix/contracts/interfaces/external/IMarket.sol) interface. Save this file to `src/external/IMarket.sol`. Replace the IERC165 import in this file with: `import "lib/forge-std/src/interfaces/IERC165.sol";`
 
-This market will also interact with the Market Manager module of the Synthetix V3 core system. Download [IMarketManagerModule](https://github.com/Synthetixio/synthetix-v3/blob/main/protocol/synthetix/contracts/interfaces/IMarketManagerModule.sol) and save it to `src/external/IMarketManagerModule.sol`. Remove the IOracleManager import in this file, remove the getOracleManager function, and replace the IERC20 import in this file with: `import "lib/forge-std/src/interfaces/IERC20.sol";`
+To generate an interface for the Synthetix V3 Core System, we can download the ABI using [Cannon](https://usecannon.com) and generate an interface file using [abi-to-sol](https://github.com/gnidan/abi-to-sol). (Make sure you have an [an IPFS node](https://docs.ipfs.tech/install/ipfs-desktop/) running to access the ABIs.)
 
-Open your favorite code editor and create a file `src/LotteryMarket.sol`. Lets put in the minimum contents of a market contract that implements the IMarket interface and imports the files we just brought into the project:
+```
+npm install -g @usecannon/cli abi-to-sol
+cannon inspect synthetix:latest --json | jq '.state["router.CoreRouter"].artifacts.contracts.CoreRouter.abi' -cM | abi-to-sol ISynthetixCore -V '^0.8.4' > src/external/ISynthetixCore.sol
+```
+
+Now open your favorite code editor and create a file `src/LotteryMarket.sol`. Lets put in the minimum contents of a market contract that implements the IMarket interface and imports the files we just brought into the project:
 
 ```js
 // SPDX-License-Identifier: MIT
@@ -118,30 +123,34 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
 As you can see, other than `supportsInterface` for ERC-165 compatability, we have to implement three functions. Let's go over these in detail:
 
 - `name(uint128 marketId) returns (string memory)`: Returns a human-readable name for the market. This is useful for display on dashboards or when people are browsing markets registered with Synthetix. In the code above, we are rendering the ID as a bytes string, which isn't ideal. You could improve this code by relying on Open Zeppelin’s [string library](https://docs.openzeppelin.com/contracts/4.x/api/utils#Strings).
-- `reportedDebt(uint128 marketId) returns (uint256)`: Allows for a market to share the amount of _unrealized debt_ which should be distributed to the LP for this market. For example, a spot token market would return `totalSupply * tokenPrice` because, if all those tokens were sold, that is the amount of stablecoins which would need to be paid out. Liquidity providers delegating to this market through a pool will effectively take on the debt reported by this function. For the lottery market, this value will always be `0` since the lottery will not be holding any unrealized debt; all debt is immediately realized as soon as the lottery pays out.
-- `minimumCredit(uint128 marketId) returns (uint256)`: Similar to `reportedDebt`, this allows the market to control the minimum amount of liquidity provided to it via pools. Collateral cannot be withdrawn such that the remaining credit capacity is below the amount returned by this function. This is useful when a market may be about to accumulate a large amount of debt and liquidity providers are able to leave in anticipation of this. The lottery market uses this function to prevent withdrawals when a draw is in progress, as we will see later.
+- `reportedDebt(uint128 marketId) returns (uint256)`: Allows for a market to share the amount of _unrealized debt_ which should be distributed to the liquidity providers for this market. For example, a spot token market would return `totalSupply * tokenPrice` because, if all those tokens were sold, that is the amount of stablecoins which would need to be paid out. Liquidity providers delegating to this market through a pool will effectively take on the debt reported by this function. For the lottery market, this value will always be `0` since the lottery will not be holding any unrealized debt; all debt is immediately realized as soon as the lottery pays out.
+- `minimumCredit(uint128 marketId) returns (uint256)`: Similar to `reportedDebt`, this allows the market to control the minimum amount of liquidity provided to it via pools. Collateral cannot be withdrawn such that the remaining credit capacity is below the amount returned by this function. This is useful when a market may be about to accumulate a large amount of debt and liquidity providers might otherwise be able to leave in anticipation. The lottery market uses this function to prevent withdrawals when a draw is in progress, as we will see later.
 
 ## Implementing the Lottery Functions
 
 Let's start by adding some variables to the top of the contract:
 
 ```js
-    uint128 marketId; // The ID assigned to this market by the Synthetix core system
-    uint256 private currentDrawRound; // Allows us to differentiate draws
-    bool private isDrawing; // Tracks whether we are waiting on Chainlink VRF to complete a round
-    mapping(uint256 => mapping(uint256 => address[])) ticketBuckets; // A mapping of rounds to a mapping of a ticket number to an array of addresses that have picked that number
-    IMarketManagerModule synthetix; // Address of the Synthetix core system
-    IERC20 linkToken; // Address of the LINK token, used for paying Chainlink VRF
-    uint256 jackpot; // Size of the jackpot
-    uint256 ticketCost; // Cost of a ticket
-    uint256 feePercent; // Percent of the ticket cost that goes to the fee collector
+    ISynthetixCore public synthetix; // Address of the Synhtetix core system
+    IERC20 public linkToken; // Address of the LINK token
+    uint128 public marketId; // Market ID, assigned by the Synthetix Core system
+
+    uint256 public jackpot; // Payout amount, denominated in USD with 18 decimals places,
+    uint256 public ticketCost; // Cost of the ticket, denominated in USD with 18 decimals places,
+    uint256 public feePercent; // Percentage of ticket cost to collect for LPs. 1 followed by 18 zeros represents 100%
+
+    uint256 private currentDrawRound; // The current draw round, for referencing ticketBuckets
+    bool private isDrawing; // Whether the market is waiting on the Chainlink VRF callback to payout the round
+
+    mapping(uint256 => mapping(uint256 => address[])) ticketBuckets; // A mapping of draw rounds to a mapping of ticket numbers to an array of addresses that have purchased tickets for them.
+    mapping(uint256 => uint256) requestIdToRound; // A mapping of request IDs (for Chainlink VRF) to draw rounds
 ```
 
-Now let's add a constructor method to take in the settings necessary for the market and register it with the Synthetix core system to receive an ID:
+Now let's add a constructor method to initialize the contract and an external method to register the market with the Synthetix core system:
 
 ```js
     constructor(
-        IMarketManagerModule _synthetix,
+        ISynthetixCore _synthetix,
         address link,
         address vrf,
         uint256 _jackpot,
@@ -153,40 +162,54 @@ Now let's add a constructor method to take in the settings necessary for the mar
         jackpot = _jackpot;
         ticketCost = _ticketCost;
         feePercent = _feePercent;
+    }
 
-        marketId = synthetix.registerMarket(address(this));
+    function registerMarket() external {
+        if (marketId == 0) {
+            marketId = synthetix.registerMarket(address(this));
+        }
     }
 ```
 
-Add a `buy` function to the `LotteryMarket` contract:
+Now we’ll add the `buy` function with a `getMaxBucketParticipants` helper function to the `LotteryMarket` contract:
 
 ```js
+    error InsufficientLiquidity(uint256 lotteryNumber, uint256 maxParticipants);
+
     function buy(address beneficary, uint lotteryNumber) external {
         address[] storage bucketParticipants = ticketBuckets[currentDrawRound][lotteryNumber % _bucketCount()];
 
-        uint maxParticipants = synthetix.getWithdrawableMarketUsd(marketId);
+        uint maxParticipants = getMaxBucketParticipants();
 
         if (bucketParticipants.length >= maxParticipants) {
             revert InsufficientLiquidity(lotteryNumber, maxParticipants);
         }
 
-        _getUsdToken().transferFrom(msg.sender, address(this), ticketCost);
+        IERC20(synthetix.getUsdToken()).transferFrom(msg.sender, address(this), ticketCost);
         bucketParticipants.push(beneficary);
+    }
+
+    function getMaxBucketParticipants() public view returns (uint256) {
+        return synthetix.getWithdrawableMarketUsd(marketId) / jackpot;
     }
 ```
 
-This function is mostly self-explanatory. However, we do need to add a check to limit the market's risk exposure with `maxParticipants`. This prevents a case where 10 users all pick lottery number `42`. If at a later draw `42` gets picked, but the market only has 5000 USD of available liquidity, it would go insolvent, being unable to pay the winners the amount they deserve.
+This function is mostly self-explanatory. However, we do need to add a check to limit the market's risk exposure with `maxParticipants`. This prevents a case where 10 users all pick lottery number `42`. If Chainlink VRF draws `42`, but the market only has 5000 USD of available liquidity, it would go insolvent (i.e. be unable to pay the winners the amount they deserve).
 
-We also need to create `draw` and `payout` to allow for lottery winners to be selected:
+We also need to create `startDraw` and `finishDraw` to allow for lottery winners to be selected, with a few helper functions:
 
 ```js
-    function draw(uint256 maxLinkCost) external {
+    error DrawAlreadyInProgress();
+
+    function startDraw(uint256 maxLinkCost) external {
         if (isDrawing) {
-            return;
+            revert DrawAlreadyInProgress();
         }
 
+        // because of the way chainlink's VRF contracts work, we must transfer link from the sender before continuing
         linkToken.transferFrom(msg.sender, address(this), maxLinkCost);
 
+        // initialize the request for a random number, transfer LINK from the sender's account
         uint256 requestId = requestRandomness(
             500000, // max callback gas
             0, // min confirmations
@@ -198,25 +221,31 @@ We also need to create `draw` and `payout` to allow for lottery winners to be se
         isDrawing = true;
     }
 
-    function payout(uint256 round, uint256 winningNumber) internal {
-
+    function finishDraw(uint256 round, uint256 winningNumber) internal {
         address[] storage winners = ticketBuckets[round][winningNumber % _bucketCount()];
 
-        uint currentBalance = _getUsdToken().balanceOf(address(this));
+        // if we dont have sufficient deposits, withdraw stablecoins from LPs
+        IERC20 usdToken = IERC20(synthetix.getUsdToken());
+        uint currentBalance = usdToken.balanceOf(address(this));
         if (currentBalance < jackpot * winners.length) {
             synthetix.withdrawMarketUsd(
                 marketId,
                 address(this),
                 jackpot * winners.length - currentBalance
             );
+
+            currentBalance = jackpot * winners.length;
         }
 
+        // now send the deposits
         for (uint i = 0;i < winners.length;i++) {
-            _getUsdToken().transfer(winners[i], jackpot);
+            usdToken.transfer(winners[i], jackpot);
         }
 
+        // update what our balance should be
         currentBalance -= jackpot * winners.length;
 
+        // send anything remaining to the deposit
         if (currentBalance > 0) {
             synthetix.depositMarketUsd(marketId, address(this), currentBalance);
         }
@@ -224,72 +253,148 @@ We also need to create `draw` and `payout` to allow for lottery winners to be se
         // allow for the next draw to start and unlock funds
         isDrawing = false;
     }
+
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override virtual {
+        finishDraw(requestIdToRound[requestId], randomWords[0]);
+    }
+
+    function _bucketCount() internal view returns (uint256) {
+        uint256 baseBuckets = jackpot / ticketCost;
+        return baseBuckets + baseBuckets * feePercent;
+    }
 ```
 
-In order to initialize a request with Chainlink VRF, LINK tokens must be provided by the caller in order to cover the costs of the draw. The market could hypothetically pay for this itself (ex. through minting snxUSD and then buying LINK), but its easiest and
+In order to initialize a request with Chainlink VRF, LINK tokens must be provided by the caller in order to cover the costs of the draw. You could also implement the market could to cover this cost automatically (e.g. through withdrawing stablecoins and buying LINK through a decentralized exchange).
 
-`payout()` is called (indirectly) by the Chainlink oracles with the random number we are looking for. The function above might look a little daunting, but to summarize, all it is doing is distributing the jackpot to the users who won the draw. If there is not enough snxUSD sitting in the contract to cover this, the contract mints more snxUSD. If excess remains after sending all the jackpots (if any), the snxUSD is burned. By doing this, the stakers backing the market are penalized or rewarded based on the performance of the market. As this is a lottery market, we would expect stakers to statistically profit 1 cent for every $1 lottery ticket purchased (based on the 1% fee we have set above), but randomness is random, after all.
+`finishDraw()` is called (via the `fulfillRandomWords` function) by the Chainlink oracles with the random number as requested. Th finish draw function distributes the jackpot to the users who won the draw.
+
+If there are not enough stablecoins sitting in the market contract to cover this, the contract withdraws more stablecoins. If excess stablecoins remain in the contract after distributing the jackpots (if any), the stablecoins are deposited, automatically distributing them to LPs.
+
+By doing this, the LPs backing the market are penalized or rewarded based on the performance of the market. As this is a lottery market, we would expect stakers to statistically profit 1 cent for every $1 lottery ticket purchased (based on the 1% fee we have set above) on average.
+
+If you run `forge build`, you should find that the code compiles without error.
 
 ## Testing
 
-If you run `forge build`, you should find that the code compiles without error. If you are having trouble, feel free to compare your code with the [official repository]().
+We will now build some tests to make sure that the basic functionality of the lottery is working as intended. Normally, we would have to either mock Synthetix and Chainlink VRF or figure out how to deploy them. Instead, Synthetix uses a tool called [Cannon](https://usecannon.com) which makes this process much easier my managing deployments to local, test, and production blockchains.
 
-We will now build some tests to make sure that the basic functionality of the lottery is intact. Normally, we would have to either mock Synthetix and Chainlink VRF or figure out how to deploy them. However, Synthetix uses a tool called [Cannon](https://usecannon.com) which makes this process much easier. To integrate with Cannon, the CLI needs to be installed via NPM:
-
-```
-npm install -g @usecannon/cli
-cannon --version
-```
-
-We also use a tool `abi-to-sol` to generate interfaces from their on-chain definitions:
+We'll start by creating a Cannonfile that imports Synthetix and Chainlink VRF. It will deploy the Lottery Market contract and call the `registerMarket` function:
 
 ```
-npm install -g abi-to-sol
+name = "lottery-market"
+version = "0.1.0"
+description = "Demo market for Synthetix V3"
+
+[setting.jackpot]
+defaultValue = "1000000000000000000000"
+
+[setting.ticketCost]
+defaultValue = "1000000000000000000"
+
+[setting.feePercent]
+defaultValue = "10000000000000000"
+
+[setting.salt]
+defaultValue = "lottery"
+
+[import.vrf]
+source = "chainlink-vrf:2.0.0"
+
+[import.synthetix]
+source = "synthetix:3.0.4-alpha.0"
+
+[contract.LotteryMarket]
+artifact = "LotteryMarket"
+create2 = true
+args = [
+    "<%= imports.synthetix.contracts.CoreProxy.address %>",
+    "<%= imports.vrf.imports.linkAggregator.imports.linkToken.contracts.Token.address %>",
+    "<%= imports.vrf.contracts.VRFWrapper.address %>",
+    "<%= settings.jackpot %>",
+    "<%= settings.ticketCost %>",
+    "<%= settings.feePercent %>"
+]
+depends = ["import.vrf", "import.synthetix"]
+
+[invoke.registerMarket]
+target = ["LotteryMarket"]
+func = "registerMarket"
+extra.marketId.event = "LotteryRegistered"
+extra.marketId.arg = 0
+depends = ["contract.LotteryMarket"]
 ```
 
-To integrate cannon with foundry, the `cannon-std` library must be imported for use in the tests as well:
+Next, we’ll create a cannonfile for tests that extends this one. (TODO: Additional explainer here.)
+
+```
+include = [
+    "cannonfile.toml"
+]
+
+[import.sandbox]
+source = "synthetix-sandbox:latest"
+
+[import.synthetix]
+source = "synthetix:latest"
+preset = "with-synthetix-sandbox"
+depends = ["import.sandbox"]
+
+[invoke.setCollateralConfig]
+target = ["synthetix.CoreProxy"]
+fromCall.func = "owner"
+func = "setPoolConfiguration"
+args = [
+    1,
+    [
+        { marketId = '<%= extras.marketId %>', weightD18 = '1', maxDebtShareValueD18 = "<%= parseEther('1').toString() %>" }
+    ]
+]
+depends = ["invoke.registerMarket"]
+```
+
+Next, to integrate Cannon with Foundry, the `cannon-std` library must be imported for use in the tests:
 
 ```
 forge install usecannon/cannon-std
 ```
 
-Now we are ready to implement our tests! Create a file at `test/LotteryMarket.t.sol` and put the following code:
+Now we are ready to implement our tests! Create a file at `test/LotteryMarket.t.sol` and bring over the code from [this repository](), modifying as you see fit.
+
+To run the tests with injected dependencies and full environment:
 
 ```
-
-```
-
-Run `forge build` to verify that your project is successfully building.
-
-Now, we can run the tests with injected dependencies and full env:
-
-```
-cannon test
+cannon test cannonfile.test.toml
 ```
 
 What exactly is happening here?
 
-- Cannon uses the `cannonfile.toml` we just created to generate the exact deployment state of the Lottery Market on your local network
-- It saves the addresses to JSON files in your `deployments` directory so that they can be queried within Foundry
-- It executes foundry on the network that Cannon just created with `forge test`, and the tests get the address from `Cannon.getAddress()` library function.
+- Cannon uses the `cannonfile.test.toml` to generate the exact deployment state of the Lottery Market on your local network.
+- It saves the addresses to JSON files in your `deployments` directory so that they can be queried within Foundry.
+- It executes Foundry on the network that Cannon just created with `forge test`, and the tests get the address from `Cannon.getAddress()` library function.
 
-Thats it! No more deployment scripts, complicated test setups, or problems with mocks that diverge from real functionality. As you can see in the next section, this `cannonfile.toml` can be reused to handle the deployment to testnet.
+That's it! No more deployment scripts, complicated test setups, or problems with mocks that diverge from real functionality. As you can see in the next section, this `cannonfile.toml` can be reused to handle the deployment to testnets or mainnets.
 
 ## Deployment
 
-### Setting up the environment
+### Simulate a Deployment
 
-Now that we have a smart contract and have written tests for it, we can deploy it to a testnet. As Cannon is a deployment and packaging tool, it can also be used for the task of deploying newly built markets. Deployment of the market is the same as a regular cannon build, but you have to specify a RPC endpoint (and, most likely, a private key with ETH as the deployer). Additionally, its a good idea to simulate the release before actually running it.
+Now that we have a smart contract and have written tests for it, we can deploy it to a testnet. As Cannon is a deployment and packaging tool, it can also be used for the task of deploying newly built markets. Deployment of the market is the same as a regular Cannon build, but you have to specify a remote RPC endpoint (and, most likely, a private key with ETH as the deployer). Additionally, its a good idea to simulate the release before actually running it.
 
 Another nice feature of Cannon is that any of your dependencies (such as Chainlink or Synthetix V3) will automatically resolve the addresses for the actual deployments on their networks, so you do not need to fuss with connecting the correct addresses to your contracts or making sure that you are using the correct network.
 
 To simulate a release of the lottery market to Goerli, use a command like below:
 
 ```
-cannon lottery-market:1.0.0 --network $GOERLI_RPC --private-key $DEPLOYER_PRIVATE_KEY --dry-run
+cannon build --network $GOERLI_RPC --private-key $DEPLOYER_PRIVATE_KEY --dry-run
 ```
 
-## Testing it out (without the GUI)
+Assuming the output is as you would expect, remove `--dry-run` to perform an actual release:
+
+```
+cannon build --network $GOERLI_RPC --private-key $DEPLOYER_PRIVATE_KEY
+```
+
+## Manually Test
 
 Now that we have deployed the contract to Goerli, we can verify that it is working using Cannon.
 
@@ -299,33 +404,14 @@ Cannon includes a built-in CLI which allows for you to select and call methods o
 cannon interact lottery-market:1.0.0 --network $GOERLI_RPC
 ```
 
-By using the arrow keys or typing, you can select the contract to execute a function call on. Lets open the `LotteryMarket` contract. Inside, you will find all the external methods we defined for the lottery market. Push enter on `name()`. You should see that the lottery market returns `Lottery (ticket cost = 1 USD, jackpot = 1000 USD)`. You could also try buying a lottery ticket with `buy()`, but if your testing account doesn't have any snxUSD, the call will fail. A decoded explanation of the error should appear when you do this (as shown below).
+Select the contract to execute a function call on. Lets open the `LotteryMarket` contract. Inside, you will find all the external methods we defined for the lottery market. Push enter on `name()`. You should see that the lottery market returns the appropriate string. You could also try buying a lottery ticket with `buy()`, but if your testing account doesn't have any stablecoins, the call will fail. A decoded explanation of the error should appear when you do this.
 
-You can also run interact on a fork. This has the added benefit of being able to "impersonate" any address, such as the owner of the Synthetix v3 core system. For example:
+You can also run interact on a fork. This has the added benefit of being able to "impersonate" any address. For example:
 
 ```
 cannon run lottery-market:1.0.0 --fork $GOERLI_RPC --impersonate 0x48914229deDd5A9922f44441ffCCfC2Cb7856Ee9
 ```
 
-## Building a simple UI
+## Building a Simple UI
 
-Rainbow kit provides a great starting point:
-
-```
-npm init @rainbow-me/rainbowkit@latest
-```
-
-On the first (and only) prompt, name the project `ui`.
-
-After everything is done, we can open `_app.tsx` and, in `getDefaultWallets` initializer, change `appName` to `Lottery Market`. Optionally you can add your own rainbow kit project ID as well.
-
-Now lets open `index.tsx` and lets put in our app code:
-* change the `<title>` tag to be `Lottery Market`
-* change `Welcome to <a href="">RainbowKit</a> + <a href="">wagmi</a> +{' '}<a href="https://nextjs.org">Next.js!</a>` to be `Welcome to the Lottery!`
-* delete the rest of the code after the welcome in the `<main>` tag
-
-
-
-## Deploying the UI to IPFS
-
-## The Final Result
+See the `ui` directory for an example user interface for the market contract. You can use whichever stack you’re most comfortable with, but this example repository relies on [Ethers](https://docs.ethers.org/v5/), [Next](https://nextjs.org/), [RainbowKit](https://www.rainbowkit.com/), and [wagmi](https://wagmi.sh/). Note that all of the ABIs are retrieved from the deployments folder generated by Cannon.
