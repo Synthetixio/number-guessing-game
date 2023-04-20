@@ -25,10 +25,9 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
 
     uint256 public jackpot;
     uint256 public ticketCost;
-
     uint256 public feePercent;
 
-    uint256 private currentDrawEpoch;
+    uint256 private currentDrawRound;
     bool private isDrawing;
 
     mapping(uint256 => mapping(uint256 => address[])) ticketBuckets;
@@ -57,19 +56,20 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     }
 
     function buy(address beneficary, uint lotteryNumber) external {
-        address[] storage bucketParticipants = ticketBuckets[currentDrawEpoch][lotteryNumber % _bucketCount()];
+        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][lotteryNumber % _bucketCount()];
 
         uint maxParticipants = getMaxBucketParticipants();
-
-        // if too many participants on a single bucket and the numberis drawn, 
-        // the contract could run out of money.
-        // prevent this from happening.
+        
         if (bucketParticipants.length >= maxParticipants) {
             revert InsufficientLiquidity(lotteryNumber, maxParticipants);
         }
 
         IERC20(synthetix.getUsdToken()).transferFrom(msg.sender, address(this), ticketCost);
         bucketParticipants.push(beneficary);
+    }
+
+    function getMaxBucketParticipants() public view returns (uint256) {
+        return synthetix.getWithdrawableMarketUsd(marketId) / jackpot;
     }
 
     function startDraw(uint256 maxLinkCost) external {
@@ -87,16 +87,15 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
             1 // number of random values
         );
 
-        requestIdToRound[requestId] = currentDrawEpoch++;
+        requestIdToRound[requestId] = currentDrawRound++;
 
         isDrawing = true;
     }
 
     function finishDraw(uint256 round, uint256 winningNumber) internal {
-
         address[] storage winners = ticketBuckets[round][winningNumber % _bucketCount()];
 
-        // if we dont have sufficient deposits, print money
+        // if we dont have sufficient deposits, withdraw stablecoins from LPs
         IERC20 usdToken = IERC20(synthetix.getUsdToken());
         uint currentBalance = usdToken.balanceOf(address(this));
         if (currentBalance < jackpot * winners.length) {
@@ -126,8 +125,13 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         isDrawing = false;
     }
 
-    function getMaxBucketParticipants() public view returns (uint256) {
-        return synthetix.getWithdrawableMarketUsd(marketId) / jackpot;
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override virtual {
+        finishDraw(requestIdToRound[requestId], randomWords[0]);
+    }
+    
+    function _bucketCount() internal view returns (uint256) {
+        uint256 baseBuckets = jackpot / ticketCost;
+        return baseBuckets + baseBuckets * feePercent;
     }
 
     function name(uint128 _marketId) external override view returns (string memory n) {
@@ -149,9 +153,6 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         }
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override virtual {
-        finishDraw(requestIdToRound[requestId], randomWords[0]);
-    }
 
     /**
      * @inheritdoc IERC165
@@ -162,10 +163,5 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         return
             interfaceId == type(IMarket).interfaceId ||
             interfaceId == this.supportsInterface.selector;
-    }
-
-    function _bucketCount() internal view returns (uint256) {
-        uint256 baseBuckets = jackpot / ticketCost;
-        return baseBuckets + baseBuckets * feePercent;
     }
 }
