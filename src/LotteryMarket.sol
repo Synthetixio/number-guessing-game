@@ -8,7 +8,6 @@ import "lib/forge-std/src/interfaces/IERC20.sol";
 import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
 contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
-
     event LotteryRegistered(uint128 indexed marketId);
 
     /**
@@ -36,9 +35,9 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     constructor(
         ISynthetixCore _synthetix,
         address link,
-        address vrf, 
-        uint256 _jackpot, 
-        uint256 _ticketCost, 
+        address vrf,
+        uint256 _jackpot,
+        uint256 _ticketCost,
         uint256 _feePercent
     ) VRFV2WrapperConsumerBase(link, vrf) {
         synthetix = _synthetix;
@@ -56,15 +55,21 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     }
 
     function buy(address beneficary, uint lotteryNumber) external {
-        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][lotteryNumber % _bucketCount()];
+        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][
+            lotteryNumber % _bucketCount()
+        ];
 
         uint maxParticipants = getMaxBucketParticipants();
-        
+
         if (bucketParticipants.length >= maxParticipants) {
             revert InsufficientLiquidity(lotteryNumber, maxParticipants);
         }
 
-        IERC20(synthetix.getUsdToken()).transferFrom(msg.sender, address(this), ticketCost);
+        IERC20(synthetix.getUsdToken()).transferFrom(
+            msg.sender,
+            address(this),
+            ticketCost
+        );
         bucketParticipants.push(beneficary);
     }
 
@@ -93,15 +98,17 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     }
 
     function finishDraw(uint256 round, uint256 winningNumber) internal {
-        address[] storage winners = ticketBuckets[round][winningNumber % _bucketCount()];
+        address[] storage winners = ticketBuckets[round][
+            winningNumber % _bucketCount()
+        ];
 
         // if we dont have sufficient deposits, withdraw stablecoins from LPs
         IERC20 usdToken = IERC20(synthetix.getUsdToken());
         uint currentBalance = usdToken.balanceOf(address(this));
         if (currentBalance < jackpot * winners.length) {
             synthetix.withdrawMarketUsd(
-                marketId, 
-                address(this), 
+                marketId,
+                address(this),
                 jackpot * winners.length - currentBalance
             );
 
@@ -109,7 +116,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         }
 
         // now send the deposits
-        for (uint i = 0;i < winners.length;i++) {
+        for (uint i = 0; i < winners.length; i++) {
             usdToken.transfer(winners[i], jackpot);
         }
 
@@ -125,26 +132,35 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         isDrawing = false;
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override virtual {
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal virtual override {
         finishDraw(requestIdToRound[requestId], randomWords[0]);
     }
-    
+
     function _bucketCount() internal view returns (uint256) {
         uint256 baseBuckets = jackpot / ticketCost;
         return baseBuckets + baseBuckets * feePercent;
     }
 
-    function name(uint128 _marketId) external override view returns (string memory n) {
+    function name(
+        uint128 _marketId
+    ) external view override returns (string memory n) {
         if (_marketId == marketId) {
-            n = string(abi.encodePacked("Market ", bytes32(uint256(_marketId))));
+            n = string(
+                abi.encodePacked("Market ", bytes32(uint256(_marketId)))
+            );
         }
     }
 
-    function reportedDebt(uint128) external override pure returns (uint256) {
+    function reportedDebt(uint128) external pure override returns (uint256) {
         return 0;
     }
 
-    function minimumCredit(uint128 _marketId) external override view returns (uint256 l) {
+    function minimumCredit(
+        uint128 _marketId
+    ) external view override returns (uint256 l) {
         if (_marketId == marketId) {
             // all collateral is locked during the draw
             if (isDrawing) {
@@ -152,7 +168,6 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
             }
         }
     }
-
 
     /**
      * @inheritdoc IERC165

@@ -18,7 +18,7 @@ defaultValue = "lottery"
 source = "chainlink-vrf:2.0.0"
 
 [import.synthetix]
-source = "synthetix:3.0.4-alpha.0"
+source = "synthetix:3.1.0"
 
 [contract.LotteryMarket]
 artifact = "LotteryMarket"
@@ -33,9 +33,20 @@ args = [
 ]
 depends = ["import.vrf", "import.synthetix"]
 
+[invoke.allowAllRegisterMarket]
+target = ["synthetix.CoreProxy"]
+fromCall.func = "owner"
+func = "setFeatureFlagAllowAll"
+args = [
+  "<%= formatBytes32String('registerMarket') %>",
+  true
+]
+depends = ["import.synthetix"]
+
 [invoke.registerMarket]
 target = ["LotteryMarket"]
 func = "registerMarket"
+from = "<%= settings.owner %>"
 extra.marketId.event = "LotteryRegistered"
 extra.marketId.arg = 0
-depends = ["contract.LotteryMarket"]
+depends = ["invoke.allowAllRegisterMarket", "contract.LotteryMarket"]

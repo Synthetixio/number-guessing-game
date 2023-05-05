@@ -10,7 +10,6 @@ import "./fakes/AggregatorV3Mock.sol";
 import "forge-std/console.sol";
 
 contract LotteryMarketTest is Test {
-
     using Cannon for Vm;
 
     LotteryMarket market;
@@ -47,17 +46,13 @@ contract LotteryMarketTest is Test {
 
         // approve usd token to the market so we can buy tickets
         usdToken.approve(address(market), type(uint256).max);
-        
+
         // approve link token to the market so it can be taken for draw
         linkToken.approve(address(market), type(uint256).max);
 
-        // for now, 
+        // for now,
         // TODO: this shouldn't have to be a mock, just a problem with the underlying chainlink
-        vm.mockCall(
-            vrf,
-            "",
-            abi.encode(uint256(1e18))
-        );
+        vm.mockCall(vrf, "", abi.encode(uint256(1e18)));
     }
 
     function testFailBuyTicketWithoutMoney() external {
@@ -68,7 +63,7 @@ contract LotteryMarketTest is Test {
     function testFailBuyMaxBucketParticipants() external {
         // buy tickets one past the limit. the last ticket buy should fail
         uint256 maxBucketParticipants = market.getMaxBucketParticipants();
-        for (uint i = 0;i < maxBucketParticipants + 1;i++) {
+        for (uint i = 0; i < maxBucketParticipants + 1; i++) {
             market.buy(address(this), 42);
         }
     }
@@ -114,7 +109,7 @@ contract LotteryMarketTest is Test {
         market.startDraw(10 * 1e18);
 
         uint256[] memory randomAnswer = new uint256[](1);
-        
+
         // fulfilling withn the previously guessed number "42" causes address(this) to win twice
         randomAnswer[0] = 42;
 
@@ -123,7 +118,7 @@ contract LotteryMarketTest is Test {
 
         // should be able to draw another after this
         market.startDraw(10 * 1e18);
-        
+
         // winner should have received tokens--2 jackpots from earlier buy
         assertEq(usdToken.balanceOf(beneficiary), market.jackpot() * 2);
 

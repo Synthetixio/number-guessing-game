@@ -1,8 +1,8 @@
 ---
-title: "How to Build a Custom Market on Synthetix V3"
-subtitle: "Get started by creating a simple lottery game"
+title: 'How to Build a Custom Market on Synthetix V3'
+subtitle: 'Get started by creating a simple lottery game'
 date: 2023-04-07
-tags: ["defi", "synthetix", "howto"]
+tags: ['defi', 'synthetix', 'howto']
 draft: true
 ---
 
