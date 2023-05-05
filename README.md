@@ -83,14 +83,20 @@ npm install -g @usecannon/cli abi-to-sol
 cannon inspect synthetix:latest --json | jq '.state["router.CoreRouter"].artifacts.contracts.CoreRouter.abi' -cM | abi-to-sol ISynthetixCore -V '^0.8.4' > src/external/ISynthetixCore.sol
 ```
 
-Now open your favorite code editor and create a file `src/LotteryMarket.sol`. Lets put in the minimum contents of a market contract that implements the IMarket interface and imports the files we just brought into the project:
+Now let's create a file `src/LotteryMarket.sol`.
+
+```
+touch src/LotteryMarket.sol
+```
+
+We'll put in the minimum contents of a market contract that implements the IMarket interface and imports the files we just brought into the project:
 
 ```js
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "./external/IMarket.sol";
-import "./external/IMarketManagerModule.sol";
+import "./external/ISynthetixCore.sol";
 
 import "lib/forge-std/src/interfaces/IERC20.sol";
 import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
@@ -281,6 +287,12 @@ We will now build some tests to make sure that the basic functionality of the lo
 We'll start by creating a Cannonfile that imports Synthetix and Chainlink VRF. It will deploy the Lottery Market contract and call the `registerMarket` function:
 
 ```
+touch cannonfile.toml
+```
+
+Copy the following to this file
+
+```
 name = "lottery-market"
 version = "0.1.0"
 description = "Demo market for Synthetix V3"
@@ -324,7 +336,11 @@ extra.marketId.arg = 0
 depends = ["contract.LotteryMarket"]
 ```
 
-Next, we’ll create a cannonfile for tests that extends this one. (TODO: Additional explainer here.)
+Next, we’ll create a cannonfile for tests that extends this one.
+
+```
+touch cannonfile.test.toml
+```
 
 ```
 include = [
@@ -385,13 +401,13 @@ Another nice feature of Cannon is that any of your dependencies (such as Chainli
 To simulate a release of the lottery market to Goerli, use a command like below:
 
 ```
-cannon build --network $GOERLI_RPC --private-key $DEPLOYER_PRIVATE_KEY --dry-run
+cannon build -n $GOERLI_RPC -c 5 --private-key $DEPLOYER_PRIVATE_KEY --dry-run
 ```
 
 Assuming the output is as you would expect, remove `--dry-run` to perform an actual release:
 
 ```
-cannon build --network $GOERLI_RPC --private-key $DEPLOYER_PRIVATE_KEY
+cannon build -n $GOERLI_RPC -c 5 --private-key $DEPLOYER_PRIVATE_KEY
 ```
 
 ## Manually Test
@@ -401,7 +417,7 @@ Now that we have deployed the contract to Goerli, we can verify that it is worki
 Cannon includes a built-in CLI which allows for you to select and call methods on a contract. It also decodes all relevant data, such as ABI names of arguments, or revert errors in the event of a failure. This CLI can be used either on a fork, or directly on the network. To launch the interact tool directly, run:
 
 ```
-cannon interact lottery-market:1.0.0 --network $GOERLI_RPC
+cannon interact lottery-market:1.0.0 -n $GOERLI_RPC -c 5
 ```
 
 Select the contract to execute a function call on. Lets open the `LotteryMarket` contract. Inside, you will find all the external methods we defined for the lottery market. Push enter on `name()`. You should see that the lottery market returns the appropriate string. You could also try buying a lottery ticket with `buy()`, but if your testing account doesn't have any stablecoins, the call will fail. A decoded explanation of the error should appear when you do this.
