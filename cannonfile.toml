@@ -11,42 +11,29 @@ defaultValue = "1000000000000000000"
 [setting.feePercent]
 defaultValue = "10000000000000000"
 
-[setting.salt]
-defaultValue = "lottery"
+[import.sandbox]
+source = "synthetix-sandbox:latest"
 
 [import.vrf]
 source = "chainlink-vrf:2.0.0"
-
-[import.synthetix]
-source = "synthetix:3.1.0"
 
 [contract.LotteryMarket]
 artifact = "LotteryMarket"
 create2 = true
 args = [
-    "<%= imports.synthetix.contracts.CoreProxy.address %>",
+    "<%= imports.sandbox.imports.synthetix.contracts.CoreProxy.address %>",
     "<%= imports.vrf.imports.linkAggregator.imports.linkToken.contracts.Token.address %>",
     "<%= imports.vrf.contracts.VRFWrapper.address %>",
     "<%= settings.jackpot %>",
     "<%= settings.ticketCost %>",
     "<%= settings.feePercent %>"
 ]
-depends = ["import.vrf", "import.synthetix"]
-
-[invoke.allowAllRegisterMarket]
-target = ["synthetix.CoreProxy"]
-fromCall.func = "owner"
-func = "setFeatureFlagAllowAll"
-args = [
-  "<%= formatBytes32String('registerMarket') %>",
-  true
-]
-depends = ["import.synthetix"]
+depends = ["import.vrf", "import.sandbox"]
 
 [invoke.registerMarket]
 target = ["LotteryMarket"]
 func = "registerMarket"
-from = "<%= settings.owner %>"
+from = "<%= settings.user %>"
 extra.marketId.event = "LotteryRegistered"
 extra.marketId.arg = 0
-depends = ["invoke.allowAllRegisterMarket", "contract.LotteryMarket"]
+depends = ["contract.LotteryMarket"]

@@ -1,81 +1,93 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import type { NextPage } from 'next';
 import Head from 'next/head';
-import styles from '../styles/Home.module.css';
 import { useEffect, useState } from 'react';
-import { useAccount, useContractRead, useContractWrite, useNetwork } from 'wagmi';
+import {
+  useAccount,
+  useContractRead,
+  useContractWrite,
+  useSigner,
+} from 'wagmi';
 import { usePrepareContractWrite } from 'wagmi';
-import { ethers } from 'ethers';
+import { Contract, ethers } from 'ethers';
+import lotteryMarketInfo from '../../deployments/LotteryMarket.json';
+import usdTokenInfo from '../../deployments/sandbox/synthetix/USDProxy.json';
+import linkTokenInfo from '../../deployments/vrf/linkAggregator/linkToken/Token.json';
+import Header from '../components/Header';
 
 const Home: NextPage = () => {
-
-  const [luckyNumber, setLuckyNumber] = useState(Math.floor(Math.random() * 1000));
-
-
-  
-  const { chain } = useNetwork();
+  const [luckyNumber, setLuckyNumber] = useState(
+    Math.floor(Math.random() * 1000)
+  );
 
   const account = useAccount();
-
-  const lotteryMarketInfo = chain && chain.id === 13370 ? require(`../deployments/${chain.id}/LotteryMarket.json`) : {};
-  const usdTokenInfo = chain && chain.id === 13370 ? require(`../deployments/${chain.id}/synthetix/USDProxy.json`) : {};
-  const linkTokenInfo = chain && chain.id === 13370 ? require(`../deployments/${chain.id}/vrf/linkAggregator/linkToken/Token.json`) : {};
+  const signer = useSigner();
 
   const usdAllowance = useContractRead({
-    address: usdTokenInfo.address,
+    address: usdTokenInfo.address as any,
     abi: usdTokenInfo.abi,
     functionName: 'allowance',
-    args: [account.address, lotteryMarketInfo.address]
+    args: [account.address, lotteryMarketInfo.address],
   });
 
   const usdBalance = useContractRead({
-    address: usdTokenInfo.address,
+    address: usdTokenInfo.address as any,
     abi: usdTokenInfo.abi,
     functionName: 'balanceOf',
-    args: [account.address]
+    args: [account.address],
   });
 
-
   const linkAllowance = useContractRead({
-    address: linkTokenInfo.address,
+    address: linkTokenInfo.address as any,
     abi: linkTokenInfo.abi,
     functionName: 'allowance',
-    args: [account.address, lotteryMarketInfo.address]
+    args: [account.address, lotteryMarketInfo.address],
   });
 
   const linkBalance = useContractRead({
-    address: linkTokenInfo.address,
+    address: linkTokenInfo.address as any,
     abi: linkTokenInfo.abi,
     functionName: 'balanceOf',
-    args: [account.address]
+    args: [account.address],
   });
 
   const approveUsdPrepare = usePrepareContractWrite({
-    address: usdTokenInfo.address,
+    address: usdTokenInfo.address as any,
     abi: usdTokenInfo.abi,
     functionName: 'approve',
-    args: [lotteryMarketInfo.address, ethers.constants.MaxUint256]
+    args: [lotteryMarketInfo.address, ethers.constants.MaxUint256],
   });
 
   const approveLinkPrepare = usePrepareContractWrite({
-    address: linkTokenInfo.address,
+    address: linkTokenInfo.address as any,
     abi: linkTokenInfo.abi,
     functionName: 'approve',
-    args: [lotteryMarketInfo.address, ethers.constants.MaxUint256]
+    args: [lotteryMarketInfo.address, ethers.constants.MaxUint256],
   });
 
   const buyTicketPrepare = usePrepareContractWrite({
-    address: lotteryMarketInfo.address,
+    address: lotteryMarketInfo.address as any,
     abi: lotteryMarketInfo.abi,
     functionName: 'buy',
-    args: [account.address, luckyNumber]
+    args: [account.address, luckyNumber],
   });
 
   const drawPrepare = usePrepareContractWrite({
-    address: lotteryMarketInfo.address,
+    address: lotteryMarketInfo.address as any,
     abi: lotteryMarketInfo.abi,
     functionName: 'startDraw',
-    args: [ethers.utils.parseEther('100').toString()]
+    args: [ethers.utils.parseEther('100').toString()],
+  });
+
+  const jackpotValue = useContractRead({
+    address: lotteryMarketInfo.address as any,
+    abi: lotteryMarketInfo.abi,
+    functionName: 'jackpot',
+  });
+
+  const ticketCost = useContractRead({
+    address: lotteryMarketInfo.address as any,
+    abi: lotteryMarketInfo.abi,
+    functionName: 'ticketCost',
   });
 
   const approveUsdTxn = useContractWrite(approveUsdPrepare.config);
@@ -89,7 +101,7 @@ const Home: NextPage = () => {
       approveUsdPrepare.refetch();
       buyTicketPrepare.refetch();
     }
-  }, [lotteryMarketInfo, account.address]);
+  }, [account.isConnected]);
 
   useEffect(() => {
     usdAllowance.refetch();
@@ -97,12 +109,8 @@ const Home: NextPage = () => {
     buyTicketTxn.reset();
   }, [buyTicketTxn.data]);
 
-
-
-  console.log(usdAllowance);
-
   return (
-    <div className={styles.container}>
+    <div>
       <Head>
         <title>Lottery Market</title>
         <meta
@@ -112,30 +120,113 @@ const Home: NextPage = () => {
         <link href="/favicon.ico" rel="icon" />
       </Head>
 
-      <main className={styles.main}>
-        <ConnectButton />
+      <Header />
+      <main className="flex justify-center items-center flex-col gap-2">
+        <h1>Welcome to the Lottery!</h1>
 
-        <h1 className={styles.title}>
-          Welcome to the Lottery!
-        </h1>
+        {jackpotValue.data && (
+          <h2>
+            Current Jackpot value:{' '}
+            {ethers.utils.formatEther(jackpotValue.data as any)} sUSD
+          </h2>
+        )}
 
-        {usdBalance.data && <div>USD Balance: {ethers.utils.formatEther(usdBalance.data as any)}</div>}
-        {linkBalance.data && <div>LINK Balance: {ethers.utils.formatEther(linkBalance.data as any)}</div>}
+        {usdBalance.data && (
+          <div className="border-black border-[1px] border-solid rounded p-2">
+            USD Balance: {ethers.utils.formatEther(usdBalance.data as any)}
+          </div>
+        )}
+        {usdAllowance.data && (
+          <div className="border-black border-[1px] border-solid rounded p-2">
+            USD Allowance: {ethers.utils.formatEther(usdAllowance.data as any)}
+          </div>
+        )}
+        {linkBalance.data && (
+          <div className="border-black border-[1px] border-solid rounded p-2">
+            LINK Balance: {ethers.utils.formatEther(linkBalance.data as any)}
+          </div>
+        )}
+        {linkAllowance.data && (
+          <div className="border-black border-[1px] border-solid rounded p-2">
+            LINK Allowance:{' '}
+            {ethers.utils.formatEther(linkAllowance.data as any)}
+          </div>
+        )}
 
-        <input type="number" value={luckyNumber} onChange={(ev) => setLuckyNumber(parseInt(ev.target.value))} />
+        <input
+          type="number"
+          value={luckyNumber}
+          onChange={(ev) => setLuckyNumber(parseInt(ev.target.value))}
+          className="border-black border-[1px] border-solid rounded p-2"
+        />
 
-        {usdAllowance.data && (usdAllowance.data as any).eq(0) && <button disabled={!approveUsdTxn.write} onClick={() => approveUsdTxn.write!()}>Approve USD Spend</button>}
-        {usdAllowance.data && !(usdAllowance.data as any).eq(0) && <button disabled={!buyTicketTxn.write} onClick={() => buyTicketTxn.write!()}>Buy Ticket</button>}
+        {usdAllowance.data && (usdAllowance.data as any).eq(0) && (
+          <button
+            disabled={!approveUsdTxn.write}
+            onClick={() => approveUsdTxn.write!()}
+            className="bg-green-400 rounded p-2"
+          >
+            Approve USD Spend
+          </button>
+        )}
+        {usdAllowance.data && !(usdAllowance.data as any).eq(0) && (
+          <button
+            onClick={() => {
+              try {
+                if (signer.data) {
+                  new Contract(
+                    lotteryMarketInfo.address,
+                    lotteryMarketInfo.abi,
+                    signer.data
+                  ).buy(account.address, luckyNumber);
+                }
+              } catch (error) {
+                console.log(buyTicketTxn, error);
+              }
+            }}
+          >
+            Buy Ticket
+          </button>
+        )}
 
-        {usdAllowance.data && !(usdAllowance.data as any).eq(0) && buyTicketPrepare.isError && <div>Error: {buyTicketPrepare.error!.message}</div>}
+        {/* {usdAllowance.data &&
+          !(usdAllowance.data as any).eq(0) &&
+          buyTicketPrepare.isError && (
+            <div>Error: {buyTicketPrepare.error!.message}</div>
+          )} */}
 
-        {linkAllowance.data && (linkAllowance.data as any).eq(0) && <button disabled={!approveLinkTxn.write} onClick={() => approveLinkTxn.write!()}>Approve LINK</button>}
-        {linkAllowance.data && !(linkAllowance.data as any).eq(0) && <button disabled={!buyTicketTxn.write} onClick={() => drawTxn.write!()}>Draw</button>}
+        {linkAllowance.data && (linkAllowance.data as any).eq(0) && (
+          <button
+            disabled={!approveLinkTxn.write}
+            onClick={() => approveLinkTxn.write!()}
+            className="bg-green-400 rounded p-2"
+          >
+            Approve LINK
+          </button>
+        )}
+        {linkAllowance.data && !(linkAllowance.data as any).eq(0) && (
+          <button
+            onClick={() => {
+              if (signer.data) {
+                new Contract(
+                  lotteryMarketInfo.address,
+                  lotteryMarketInfo.abi,
+                  signer.data
+                ).startDraw(1000);
+              }
+            }}
+          >
+            Draw
+          </button>
+        )}
 
-        
-        
-        {linkAllowance.data && !(linkAllowance.data as any).eq(0) && drawPrepare.isError && <div>Error: {drawPrepare.error!.message}</div>}
-
+        {/* <div className="overflow-scroll">
+          {linkAllowance.data &&
+            !(linkAllowance.data as any).eq(0) &&
+            drawPrepare.isError && (
+              <div>Error: {drawPrepare.error!.message}</div>
+            )}
+        </div> */}
       </main>
     </div>
   );
