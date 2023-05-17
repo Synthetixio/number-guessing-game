@@ -50,6 +50,14 @@ const Home: NextPage = () => {
     args: [account.address],
   });
 
+  const snx = useContractRead({
+    address: '0x76490713314fCEC173f44e99346F54c6e92a8E42',
+    abi: lotteryMarketInfo.abi,
+    functionName: 'getUsdToken',
+  });
+
+  console.log(snx);
+
   const approveUsdPrepare = usePrepareContractWrite({
     address: usdTokenInfo.address as any,
     abi: usdTokenInfo.abi,
@@ -75,7 +83,7 @@ const Home: NextPage = () => {
     address: lotteryMarketInfo.address as any,
     abi: lotteryMarketInfo.abi,
     functionName: 'startDraw',
-    args: [ethers.utils.parseEther('100').toString()],
+    args: [ethers.utils.parseEther('1').toString()],
   });
 
   const jackpotValue = useContractRead({
