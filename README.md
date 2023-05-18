@@ -272,6 +272,8 @@ We also need to create `startDraw` and `finishDraw` to allow for lottery winners
 
 In order to initialize a request with Chainlink VRF, LINK tokens must be provided by the caller in order to cover the costs of the draw. You could also implement the market could to cover this cost automatically (e.g. through withdrawing stablecoins and buying LINK through a decentralized exchange).
 
+You can get LINK tokens for testnets here: [Link Faucet](https://faucets.chain.link/)
+
 `finishDraw()` is called (via the `fulfillRandomWords` function) by the Chainlink oracles with the random number as requested. Th finish draw function distributes the jackpot to the users who won the draw.
 
 If there are not enough stablecoins sitting in the market contract to cover this, the contract withdraws more stablecoins. If excess stablecoins remain in the contract after distributing the jackpots (if any), the stablecoins are deposited, automatically distributing them to LPs.
@@ -313,7 +315,7 @@ defaultValue = "lottery"
 source = "chainlink-vrf:2.0.0"
 
 [import.synthetix]
-source = "synthetix:3.0.4-alpha.0"
+source = "synthetix:latest"
 
 [contract.LotteryMarket]
 artifact = "LotteryMarket"
@@ -425,7 +427,8 @@ Select the contract to execute a function call on. Lets open the `LotteryMarket`
 You can also run interact on a fork. This has the added benefit of being able to "impersonate" any address. For example:
 
 ```
-cannon run lottery-market:1.0.0 --fork $GOERLI_RPC --impersonate 0x48914229deDd5A9922f44441ffCCfC2Cb7856Ee9
+<!-- TODO @DEV verify public key -->
+cannon run lottery-market:0.1.0 --fork $GOERLI_RPC --impersonate $PUBLIC_KEY_OF_DEPLOYER_PRIV_KEY
 ```
 
 ## Building a Simple UI

@@ -197,11 +197,11 @@ const Home: NextPage = () => {
           </button>
         )}
 
-        {/* {usdAllowance.data &&
+        {usdAllowance.data &&
           !(usdAllowance.data as any).eq(0) &&
           buyTicketPrepare.isError && (
             <div>Error: {buyTicketPrepare.error!.message}</div>
-          )} */}
+          )}
 
         {linkAllowance.data && (linkAllowance.data as any).eq(0) && (
           <button
@@ -228,13 +228,13 @@ const Home: NextPage = () => {
           </button>
         )}
 
-        {/* <div className="overflow-scroll">
+        <div className="overflow-scroll">
           {linkAllowance.data &&
             !(linkAllowance.data as any).eq(0) &&
             drawPrepare.isError && (
               <div>Error: {drawPrepare.error!.message}</div>
             )}
-        </div> */}
+        </div>
       </main>
     </div>
   );

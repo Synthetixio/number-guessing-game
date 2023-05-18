@@ -34,5 +34,6 @@ depends = ["import.vrf", "import.synthetix"]
 target = ["LotteryMarket"]
 func = "registerMarket"
 extra.marketId.event = "LotteryRegistered"
+# TODO gonna be wrong when on network X already other markets are registered
 extra.marketId.arg = 0
 depends = ["contract.LotteryMarket"]
