@@ -2,8 +2,11 @@ name = "lottery-market"
 version = "0.1.0"
 description = "Demo market for Synthetix V3"
 
+[setting.user]
+defaultValue = "0x0A2f813621AD0C2Bbb6B6360109a47dfB79416aa"
+
 [setting.jackpot]
-defaultValue = "1000000000000000000000"
+defaultValue = "10000000000000000000"
 
 [setting.ticketCost]
 defaultValue = "1000000000000000000"

@@ -23,7 +23,7 @@ Synthetix V3 allows developers to bootstrap liquidity for derivatives markets by
 
 Typically, a lottery implemented using a smart contract could not provide substantial prizes or consistent odds without first accumulating an adequate prize pool from numerous players. If it were to offer consistent odds or high payouts prematurely, the lottery would risk insolvency (i.e. be unable to pay out winners). Consequently, the initial players would be uncertain about the size of the potential prize and their odds of winning, so it would be hard to attract early players to address the first issue. This scenario exemplifies the "cold start liquidity" problem, which is relevant to all types of derivatives markets.
 
-A lottery game implemented with Synthetix can offer liquidity providers the ability to collect fees from ticket sales in exchange for providing collateral to be used in prize payouts if necessary. In this guide, the lottery will offer tickets for 1 USD, and have a consistent jackpot of 1,000 USD. These numbers could be configured differently, or even set dynamically as a function of other factors. Let your imagination run wild.
+A lottery game implemented with Synthetix can offer liquidity providers the ability to collect fees from ticket sales in exchange for providing collateral to be used in prize payouts if necessary. In this guide, the lottery will offer tickets for 1 USD, and have a consistent jackpot of 10 USD. These numbers could be configured differently, or even set dynamically as a function of other factors. Let your imagination run wild.
 
 There will be three main methods in the smart contract for the market:
 
@@ -298,7 +298,7 @@ version = "0.1.0"
 description = "Demo market for Synthetix V3"
 
 [setting.jackpot]
-defaultValue = "1000000000000000000000"
+defaultValue = "10000000000000000000"
 
 [setting.ticketCost]
 defaultValue = "1000000000000000000"
@@ -408,6 +408,8 @@ Assuming the output is as you would expect, remove `--dry-run` to perform an act
 
 ```
 cannon build -n $GOERLI_RPC -c 5 --private-key $DEPLOYER_PRIVATE_KEY
+
+cannon build -n https://eth-goerli.g.alchemy.com/v2/AjVfxPUPZgIlFndVjWT92UUqKwdofy0l -c 5 --private-key 78ef34d15f90a684e191ffb3f9de073ca626cef22bdc4c8954e07156b980a49b
 ```
 
 ## Manually Test
@@ -418,6 +420,7 @@ Cannon includes a built-in CLI which allows for you to select and call methods o
 
 ```
 cannon interact lottery-market:1.0.0 -n $GOERLI_RPC -c 5
+cannon interact lottery-market:1.0.0 -n https://eth-goerli.g.alchemy.com/v2/AjVfxPUPZgIlFndVjWT92UUqKwdofy0l -c 5
 ```
 
 Select the contract to execute a function call on. Lets open the `LotteryMarket` contract. Inside, you will find all the external methods we defined for the lottery market. Push enter on `name()`. You should see that the lottery market returns the appropriate string. You could also try buying a lottery ticket with `buy()`, but if your testing account doesn't have any stablecoins, the call will fail. A decoded explanation of the error should appear when you do this.
