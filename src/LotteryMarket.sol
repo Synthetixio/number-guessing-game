@@ -4,9 +4,9 @@ pragma solidity ^0.8.13;
 import "./external/IMarket.sol";
 import "./external/ISynthetixCore.sol";
 
-import "lib/forge-std/src/interfaces/IERC20.sol";
-import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
-import "lib/chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
+import "./forge-std/src/interfaces/IERC20.sol";
+import "./chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+import "./chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 
 contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
     event LotteryRegistered(uint128 indexed marketId);
@@ -80,14 +80,10 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
         return synthetix.getWithdrawableMarketUsd(marketId) / jackpot;
     }
 
-    function startDraw(uint256 maxLinkCost) external returns (uint256) {
+    function startDraw() external returns (uint256) {
         if (isDrawing) {
             revert DrawAlreadyInProgress();
         }
-
-        // because of the way chainlink's VRF contracts work, we must transfer link from the sender before continuing
-        linkToken.approve(vrf, 100000000 ether);
-        // linkToken.transferFrom(msg.sender, address(this), maxLinkCost);
 
         // initialize the request for a random number, transfer LINK from the sender's account
         uint256 requestId = requestRandomness(

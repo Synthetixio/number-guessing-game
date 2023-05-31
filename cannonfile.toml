@@ -2,9 +2,6 @@ name = "lottery-market"
 version = "0.1.0"
 description = "Demo market for Synthetix V3"
 
-[setting.user]
-defaultValue = "0x0A2f813621AD0C2Bbb6B6360109a47dfB79416aa"
-
 [setting.jackpot]
 defaultValue = "10000000000000000000"
 
@@ -22,14 +19,13 @@ source = "synthetix:latest"
 
 [contract.LotteryMarket]
 artifact = "LotteryMarket"
-create2 = true
 args = [
     "<%= imports.synthetix.contracts.CoreProxy.address %>",
     "<%= imports.vrf.imports.linkAggregator.imports.linkToken.contracts.Token.address %>",
     "<%= imports.vrf.contracts.VRFWrapper.address %>",
     "<%= settings.jackpot %>",
     "<%= settings.ticketCost %>",
-    "<%= settings.feePercent %>"
+    "<%= settings.feePercent %>",
 ]
 depends = ["import.vrf", "import.synthetix"]
 
@@ -37,6 +33,5 @@ depends = ["import.vrf", "import.synthetix"]
 target = ["LotteryMarket"]
 func = "registerMarket"
 extra.marketId.event = "LotteryRegistered"
-# TODO gonna be wrong when on network X already other markets are registered
 extra.marketId.arg = 0
 depends = ["contract.LotteryMarket"]

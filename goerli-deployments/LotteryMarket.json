@@ -1,5 +1,5 @@
 {
-  "address": "0x58729A4782A64847aB2a85EeA7bd15ec160d70C9",
+  "address": "0xDC0dcCE8F11744EFBb60c06A0be2534576e3B18a",
   "abi": [
     {
       "inputs": [
@@ -394,7 +394,7 @@
     "10000000000000000"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0x5adbd43b76c76f42aee89144b2387540a62ef5eaac8ddbacfb470978530a3a51",
+  "deployTxnHash": "0x55c9032a13e0af871278cc83dd5221967c54af95b0617fde64adf86169afd77a",
   "sourceName": "src/LotteryMarket.sol",
   "contractName": "LotteryMarket",
   "deployedOn": "contract.LotteryMarket"

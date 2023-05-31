@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity >=0.8.11 <0.9.0;
 
-import "lib/forge-std/src/interfaces/IERC165.sol";
+import "../forge-std/src/interfaces/IERC165.sol";
 
 /// @title Interface for markets integrated with Synthetix
 interface IMarket is IERC165 {
