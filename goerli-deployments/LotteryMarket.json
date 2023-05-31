@@ -1,5 +1,5 @@
 {
-  "address": "0xDC0dcCE8F11744EFBb60c06A0be2534576e3B18a",
+  "address": "0x380Bd2a2038E8644feB14aDFDDE86Ff61ABf5080",
   "abi": [
     {
       "inputs": [
@@ -295,13 +295,7 @@
       "type": "function"
     },
     {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "maxLinkCost",
-          "type": "uint256"
-        }
-      ],
+      "inputs": [],
       "name": "startDraw",
       "outputs": [
         {
@@ -394,7 +388,7 @@
     "10000000000000000"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0x55c9032a13e0af871278cc83dd5221967c54af95b0617fde64adf86169afd77a",
+  "deployTxnHash": "0x3e5529bdcf382ab8bd4e196a3e99d66e21432f243ee542fe169a5bcbf6c6a515",
   "sourceName": "src/LotteryMarket.sol",
   "contractName": "LotteryMarket",
   "deployedOn": "contract.LotteryMarket"

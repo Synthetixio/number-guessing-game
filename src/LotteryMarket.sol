@@ -85,10 +85,12 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
             revert DrawAlreadyInProgress();
         }
 
+        linkToken.approve(vrf, 10000 ether);
+
         // initialize the request for a random number, transfer LINK from the sender's account
         uint256 requestId = requestRandomness(
             500000, // max callback gas
-            0, // min confirmations
+            3, // min confirmations
             1 // number of random values
         );
 

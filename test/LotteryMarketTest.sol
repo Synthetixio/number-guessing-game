@@ -73,21 +73,21 @@ contract LotteryMarketTest is Test {
     }
 
     function testFailCannotDrawWhenPreviousDrawInProgress() external {
-        market.startDraw(10 * 1e18);
-        market.startDraw(10 * 1e18);
+        market.startDraw();
+        market.startDraw();
     }
 
     function testFailDrawTicketTooExpensive() external {
-        market.startDraw(1e6);
+        market.startDraw();
     }
 
     function testStartDrawLocksCollateral() external {
-        market.startDraw(10 * 1e18);
+        market.startDraw();
         assert(market.minimumCredit(market.marketId()) > 1000 * 1e18);
     }
 
     function testCanDrawTicketWithoutWinner() external {
-        market.startDraw(10 * 1e18);
+        market.startDraw();
 
         uint256[] memory randomAnswer = new uint256[](1);
         randomAnswer[0] = 43;
@@ -96,7 +96,7 @@ contract LotteryMarketTest is Test {
         market.rawFulfillRandomWords(1, randomAnswer);
 
         // should be able to draw another after this
-        market.startDraw(10 * 1e18);
+        market.startDraw();
     }
 
     function testCanDrawTicketWithWinner() external {
@@ -106,7 +106,7 @@ contract LotteryMarketTest is Test {
         market.buy(beneficiary, 42);
         market.buy(loser, 43);
 
-        market.startDraw(10 * 1e18);
+        market.startDraw();
 
         uint256[] memory randomAnswer = new uint256[](1);
 
@@ -117,7 +117,7 @@ contract LotteryMarketTest is Test {
         market.rawFulfillRandomWords(1, randomAnswer);
 
         // should be able to draw another after this
-        market.startDraw(10 * 1e18);
+        market.startDraw();
 
         // winner should have received tokens--2 jackpots from earlier buy
         assertEq(usdToken.balanceOf(beneficiary), market.jackpot() * 2);
