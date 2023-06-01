@@ -23,13 +23,12 @@ Synthetix V3 allows developers to bootstrap liquidity for derivatives markets by
 
 Typically, a lottery implemented using a smart contract could not provide substantial prizes or consistent odds without first accumulating an adequate prize pool from numerous players. If it were to offer consistent odds or high payouts prematurely, the lottery would risk insolvency (i.e. be unable to pay out winners). Consequently, the initial players would be uncertain about the size of the potential prize and their odds of winning, so it would be hard to attract early players to address the first issue. This scenario exemplifies the "cold start liquidity" problem, which is relevant to all types of derivatives markets.
 
-A lottery game implemented with Synthetix can offer liquidity providers the ability to collect fees from ticket sales in exchange for providing collateral to be used in prize payouts if necessary. In this guide, the lottery will offer tickets for 1 USD, and have a consistent jackpot of 10 USD. These numbers could be configured differently, or even set dynamically as a function of other factors. Let your imagination run wild.
+A lottery game implemented with Synthetix can offer liquidity providers the ability to collect fees from ticket sales in exchange for providing collateral to be used in prize payouts if necessary. In this guide, the lottery will offer tickets for 1 USD, and have a consistent jackpot of 10 USD (we have chosen the small amount because it is difficult sometimes to obtain enough collateral on testnets). These numbers could be configured differently, or even set dynamically as a function of other factors. Let your imagination run wild.
 
 There will be three main methods in the smart contract for the market:
 
 - `buyTicket()`: In exchange for the ticket price, this function gives the user a chance to win the jackpot at the next draw.
-- `draw()`: This function calls Chainlink to request a random number. Chainlink will return the random number in a call to `payout()`.
-- `payout()`: If a participant previously called `buyTicket` with the matching number, they win the jackpot. Otherwise, all proceed from ticket sales are automatically distributed among liquidity providers by the Synthetix system.
+- `startDraw()`: This function calls Chainlink to request a random number. Chainlink will return the random number in a call to `fulfillRandomWords()` which checks if someone won the jackpot.
 
 In a naive implementation where a constant prize were provided, a user could buy one ticket, call `draw()`, and immediately win 1,000 USD. Obviously, this would not be an appealing market for liquidity providers to back, as the market could provide the player with risk-free yield at their expense.
 
@@ -98,21 +97,31 @@ pragma solidity ^0.8.13;
 import "./external/IMarket.sol";
 import "./external/ISynthetixCore.sol";
 
-import "lib/forge-std/src/interfaces/IERC20.sol";
-import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+import "../lib/forge-std/src/interfaces/IERC20.sol";
+import "../lib/chainlink/contracts/src/v0.8/vrf/VRFV2WrapperConsumerBase.sol";
+import "../lib/chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 
-contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
-    function name(uint128 _marketId) external override view returns (string memory n) {
+contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
+    event LotteryRegistered(uint128 indexed marketId);
+    constructor(address owner) ConfirmedOwner(owner) {}
+
+    function name(
+        uint128 _marketId
+    ) external view override returns (string memory n) {
         if (_marketId == marketId) {
-            n = string(abi.encodePacked("Market ", bytes32(uint256(_marketId))));
+            n = string(
+                abi.encodePacked("Market ", bytes32(uint256(_marketId)))
+            );
         }
     }
 
-    function reportedDebt(uint128) external override pure returns (uint256) {
+    function reportedDebt(uint128) external pure override returns (uint256) {
         return 0;
     }
 
-    function minimumCredit(uint128 _marketId) external override view returns (uint256) {
+    function minimumCredit(
+        uint128 _marketId
+    ) external view override returns (uint256) {
         return 0;
     }
 
@@ -152,7 +161,7 @@ Let's start by adding some variables to the top of the contract:
     mapping(uint256 => uint256) requestIdToRound; // A mapping of request IDs (for Chainlink VRF) to draw rounds
 ```
 
-Now let's add a constructor method to initialize the contract and an external method to register the market with the Synthetix core system:
+Now let's add a constructor method to initialize the contract and an external method to register the market with the Synthetix core system and :
 
 ```js
     constructor(
@@ -161,8 +170,9 @@ Now let's add a constructor method to initialize the contract and an external me
         address vrf,
         uint256 _jackpot,
         uint256 _ticketCost,
-        uint256 _feePercent
-    ) VRFV2WrapperConsumerBase(link, vrf) {
+        uint256 _feePercent,
+        address owner
+    ) ConfirmedOwner(owner) VRFV2WrapperConsumerBase(link, vrf) {
         synthetix = _synthetix;
         linkToken = IERC20(link);
         jackpot = _jackpot;
@@ -183,7 +193,9 @@ Now we’ll add the `buy` function with a `getMaxBucketParticipants` helper func
     error InsufficientLiquidity(uint256 lotteryNumber, uint256 maxParticipants);
 
     function buy(address beneficary, uint lotteryNumber) external {
-        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][lotteryNumber % _bucketCount()];
+        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][
+            lotteryNumber % _bucketCount()
+        ];
 
         uint maxParticipants = getMaxBucketParticipants();
 
@@ -191,7 +203,11 @@ Now we’ll add the `buy` function with a `getMaxBucketParticipants` helper func
             revert InsufficientLiquidity(lotteryNumber, maxParticipants);
         }
 
-        IERC20(synthetix.getUsdToken()).transferFrom(msg.sender, address(this), ticketCost);
+        IERC20(synthetix.getUsdToken()).transferFrom(
+            msg.sender,
+            address(this),
+            ticketCost
+        );
         bucketParticipants.push(beneficary);
     }
 
@@ -207,28 +223,28 @@ We also need to create `startDraw` and `finishDraw` to allow for lottery winners
 ```js
     error DrawAlreadyInProgress();
 
-    function startDraw(uint256 maxLinkCost) external {
+    function startDraw() external returns (uint256) {
         if (isDrawing) {
             revert DrawAlreadyInProgress();
         }
 
-        // because of the way chainlink's VRF contracts work, we must transfer link from the sender before continuing
-        linkToken.transferFrom(msg.sender, address(this), maxLinkCost);
-
         // initialize the request for a random number, transfer LINK from the sender's account
         uint256 requestId = requestRandomness(
             500000, // max callback gas
-            0, // min confirmations
+            3, // min confirmations
             1 // number of random values
         );
 
         requestIdToRound[requestId] = currentDrawRound++;
 
         isDrawing = true;
+        return requestId;
     }
 
     function finishDraw(uint256 round, uint256 winningNumber) internal {
-        address[] storage winners = ticketBuckets[round][winningNumber % _bucketCount()];
+        address[] storage winners = ticketBuckets[round][
+            winningNumber % _bucketCount()
+        ];
 
         // if we dont have sufficient deposits, withdraw stablecoins from LPs
         IERC20 usdToken = IERC20(synthetix.getUsdToken());
@@ -244,7 +260,7 @@ We also need to create `startDraw` and `finishDraw` to allow for lottery winners
         }
 
         // now send the deposits
-        for (uint i = 0;i < winners.length;i++) {
+        for (uint i = 0; i < winners.length; i++) {
             usdToken.transfer(winners[i], jackpot);
         }
 
@@ -260,7 +276,10 @@ We also need to create `startDraw` and `finishDraw` to allow for lottery winners
         isDrawing = false;
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override virtual {
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal virtual override {
         finishDraw(requestIdToRound[requestId], randomWords[0]);
     }
 
@@ -270,7 +289,7 @@ We also need to create `startDraw` and `finishDraw` to allow for lottery winners
     }
 ```
 
-In order to initialize a request with Chainlink VRF, LINK tokens must be provided by the caller in order to cover the costs of the draw. You could also implement the market could to cover this cost automatically (e.g. through withdrawing stablecoins and buying LINK through a decentralized exchange).
+In order to initialize a request with Chainlink VRF, LINK tokens must be provided by the caller or the contract in order to cover the costs of the draw. You could also implement the market could to cover this cost automatically (e.g. through withdrawing stablecoins and buying LINK through a decentralized exchange). But in this example we will fund the contract with LINK tokens.
 
 You can get LINK tokens for testnets here: [Link Faucet](https://faucets.chain.link/)
 
@@ -411,7 +430,6 @@ Assuming the output is as you would expect, remove `--dry-run` to perform an act
 ```
 cannon build -n $GOERLI_RPC -c 5 --private-key $DEPLOYER_PRIVATE_KEY
 
-cannon build -n https://eth-goerli.g.alchemy.com/v2/AjVfxPUPZgIlFndVjWT92UUqKwdofy0l -c 5 --private-key 78ef34d15f90a684e191ffb3f9de073ca626cef22bdc4c8954e07156b980a49b
 ```
 
 ## Manually Test

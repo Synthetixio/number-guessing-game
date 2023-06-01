@@ -40,8 +40,9 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
         address _vrf,
         uint256 _jackpot,
         uint256 _ticketCost,
-        uint256 _feePercent
-    ) ConfirmedOwner(msg.sender) VRFV2WrapperConsumerBase(link, _vrf) {
+        uint256 _feePercent,
+        address _owner
+    ) ConfirmedOwner(_owner) VRFV2WrapperConsumerBase(link, _vrf) {
         synthetix = _synthetix;
         linkToken = IERC20(link);
         jackpot = _jackpot;
@@ -84,8 +85,6 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
         if (isDrawing) {
             revert DrawAlreadyInProgress();
         }
-
-        linkToken.approve(vrf, 10000 ether);
 
         // initialize the request for a random number, transfer LINK from the sender's account
         uint256 requestId = requestRandomness(
@@ -181,5 +180,12 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket, ConfirmedOwner {
         return
             interfaceId == type(IMarket).interfaceId ||
             interfaceId == this.supportsInterface.selector;
+    }
+
+    function withdrawLink() public onlyOwner {
+        require(
+            linkToken.transfer(msg.sender, linkToken.balanceOf(address(this))),
+            "Unable to transfer"
+        );
     }
 }

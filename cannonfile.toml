@@ -2,6 +2,9 @@ name = "lottery-market"
 version = "0.1.0"
 description = "Demo market for Synthetix V3"
 
+[setting.owner]
+defaultValue = "0x47872B16557875850a02C94B28d959515F894913"
+
 [setting.jackpot]
 defaultValue = "10000000000000000000"
 
@@ -19,6 +22,7 @@ source = "synthetix:latest"
 
 [contract.LotteryMarket]
 artifact = "LotteryMarket"
+create2 = true
 args = [
     "<%= imports.synthetix.contracts.CoreProxy.address %>",
     "<%= imports.vrf.imports.linkAggregator.imports.linkToken.contracts.Token.address %>",
@@ -26,6 +30,7 @@ args = [
     "<%= settings.jackpot %>",
     "<%= settings.ticketCost %>",
     "<%= settings.feePercent %>",
+    "<%= settings.owner %>"
 ]
 depends = ["import.vrf", "import.synthetix"]
 
