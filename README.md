@@ -167,6 +167,7 @@ Now let's add a constructor method to initialize the contract and an external me
     function registerMarket() external {
         if (marketId == 0) {
             marketId = synthetix.registerMarket(address(this));
+            emit LotteryRegistered(marketId);
         }
     }
 ```
