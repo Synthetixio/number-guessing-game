@@ -1,8 +1,8 @@
 ---
-title: "How to Build a Custom Market on Synthetix V3"
-subtitle: "Get started by creating a simple lottery game"
+title: 'How to Build a Custom Market on Synthetix V3'
+subtitle: 'Get started by creating a simple lottery game'
 date: 2023-04-07
-tags: ["defi", "synthetix", "howto"]
+tags: ['defi', 'synthetix', 'howto']
 draft: true
 ---
 
@@ -80,7 +80,7 @@ To generate an interface for the Synthetix V3 Core System, we can download the A
 
 ```
 npm install -g @usecannon/cli abi-to-sol
-cannon inspect synthetix:latest --json | jq '.state["router.CoreRouter"].artifacts.contracts.CoreRouter.abi' -cM | abi-to-sol ISynthetixCore -V '^0.8.4' > src/external/ISynthetixCore.sol
+cannon inspect --chain-id 10 synthetix:latest --json | jq '.state["router.CoreRouter"].artifacts.contracts.CoreRouter.abi' -cM | abi-to-sol ISynthetixCore -V '^0.8.4' > src/external/ISynthetixCore.sol
 ```
 
 Now open your favorite code editor and create a file `src/LotteryMarket.sol`. Lets put in the minimum contents of a market contract that implements the IMarket interface and imports the files we just brought into the project:
