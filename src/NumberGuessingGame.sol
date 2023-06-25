@@ -7,15 +7,15 @@ import "./external/ISynthetixCore.sol";
 import "lib/forge-std/src/interfaces/IERC20.sol";
 import "lib/chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
-contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
+contract NumberGuessingGame is VRFV2WrapperConsumerBase, IMarket {
 
-    event LotteryRegistered(uint128 indexed marketId);
+    event MarketRegistered(uint128 indexed marketId);
 
     /**
      * If too many people guess the same number, the contract could run out of money if that number is drawn.
      * To prevent this from happening, an error is thrown if there are too many tickets drawn for a single number
      */
-    error InsufficientLiquidity(uint256 lotteryNumber, uint256 maxParticipants);
+    error InsufficientLiquidity(uint256 guessNumber, uint256 maxParticipants);
 
     error DrawAlreadyInProgress();
 
@@ -23,7 +23,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     IERC20 public linkToken;
     uint128 public marketId;
 
-    uint256 public jackpot;
+    uint256 public prize;
     uint256 public ticketCost;
     uint256 public feePercent;
 
@@ -37,13 +37,13 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         ISynthetixCore _synthetix,
         address link,
         address vrf, 
-        uint256 _jackpot, 
+        uint256 _prize, 
         uint256 _ticketCost, 
         uint256 _feePercent
     ) VRFV2WrapperConsumerBase(link, vrf) {
         synthetix = _synthetix;
         linkToken = IERC20(link);
-        jackpot = _jackpot;
+        prize = _prize;
         ticketCost = _ticketCost;
         feePercent = _feePercent;
     }
@@ -51,17 +51,17 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     function registerMarket() external {
         if (marketId == 0) {
             marketId = synthetix.registerMarket(address(this));
-            emit LotteryRegistered(marketId);
+            emit MarketRegistered(marketId);
         }
     }
 
-    function buy(address beneficary, uint lotteryNumber) external {
-        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][lotteryNumber % _bucketCount()];
+    function buy(address beneficary, uint guessNumber) external {
+        address[] storage bucketParticipants = ticketBuckets[currentDrawRound][guessNumber % _bucketCount()];
 
         uint maxParticipants = getMaxBucketParticipants();
         
         if (bucketParticipants.length >= maxParticipants) {
-            revert InsufficientLiquidity(lotteryNumber, maxParticipants);
+            revert InsufficientLiquidity(guessNumber, maxParticipants);
         }
 
         IERC20(synthetix.getUsdToken()).transferFrom(msg.sender, address(this), ticketCost);
@@ -69,7 +69,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     }
 
     function getMaxBucketParticipants() public view returns (uint256) {
-        return synthetix.getWithdrawableMarketUsd(marketId) / jackpot;
+        return synthetix.getWithdrawableMarketUsd(marketId) / prize;
     }
 
     function startDraw(uint256 maxLinkCost) external {
@@ -98,23 +98,23 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
         // if we dont have sufficient deposits, withdraw stablecoins from LPs
         IERC20 usdToken = IERC20(synthetix.getUsdToken());
         uint currentBalance = usdToken.balanceOf(address(this));
-        if (currentBalance < jackpot * winners.length) {
+        if (currentBalance < prize * winners.length) {
             synthetix.withdrawMarketUsd(
                 marketId, 
                 address(this), 
-                jackpot * winners.length - currentBalance
+                prize * winners.length - currentBalance
             );
 
-            currentBalance = jackpot * winners.length;
+            currentBalance = prize * winners.length;
         }
 
         // now send the deposits
         for (uint i = 0;i < winners.length;i++) {
-            usdToken.transfer(winners[i], jackpot);
+            usdToken.transfer(winners[i], prize);
         }
 
         // update what our balance should be
-        currentBalance -= jackpot * winners.length;
+        currentBalance -= prize * winners.length;
 
         // send anything remaining to the deposit
         if (currentBalance > 0) {
@@ -130,7 +130,7 @@ contract LotteryMarket is VRFV2WrapperConsumerBase, IMarket {
     }
     
     function _bucketCount() internal view returns (uint256) {
-        uint256 baseBuckets = jackpot / ticketCost;
+        uint256 baseBuckets = prize / ticketCost;
         return baseBuckets + baseBuckets * feePercent;
     }
 

@@ -3,17 +3,17 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "cannon-std/Cannon.sol";
-import "../src/LotteryMarket.sol";
+import "../src/NumberGuessingGame.sol";
 
 import "./fakes/AggregatorV3Mock.sol";
 
 import "forge-std/console.sol";
 
-contract LotteryMarketTest is Test {
+contract NumberGuessingGameTest is Test {
 
     using Cannon for Vm;
 
-    LotteryMarket market;
+    NumberGuessingGame market;
     ISynthetixCore synthetixCore;
     IERC20 usdToken;
 
@@ -24,7 +24,7 @@ contract LotteryMarketTest is Test {
     address ownerAddress = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     function setUp() external {
-        market = LotteryMarket(vm.getAddress("LotteryMarket"));
+        market = NumberGuessingGame(vm.getAddress("NumberGuessingGame"));
         synthetixCore = ISynthetixCore(vm.getAddress("synthetix.CoreProxy"));
         usdToken = IERC20(vm.getAddress("synthetix.USDProxy"));
         vrf = vm.getAddress("vrf.VRFWrapper");
@@ -34,7 +34,7 @@ contract LotteryMarketTest is Test {
         address myAddress = address(this);
         vm.startPrank(ownerAddress);
 
-        // delegate collateral to the lottery market instead of the sandbox market
+        // delegate collateral to the market instead of the sandbox market
         //MarketConfiguration.Data[] memory marketConfigs = new MarketConfiguration.Data[](1);
         //marketConfigs[0] = MarketConfiguration.Data(market.marketId(), 1e18, 1e18);
         //synthetixCore.setPoolConfiguration(1, marketConfigs);
@@ -124,8 +124,8 @@ contract LotteryMarketTest is Test {
         // should be able to draw another after this
         market.startDraw(10 * 1e18);
         
-        // winner should have received tokens--2 jackpots from earlier buy
-        assertEq(usdToken.balanceOf(beneficiary), market.jackpot() * 2);
+        // winner should have received tokens--2 prizes from earlier buy
+        assertEq(usdToken.balanceOf(beneficiary), market.prize() * 2);
 
         // loser gets nothing
         assertEq(usdToken.balanceOf(loser), 0);

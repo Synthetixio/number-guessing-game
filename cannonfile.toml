@@ -1,8 +1,8 @@
-name = "lottery-market"
+name = "number-guessing-game"
 version = "0.1.0"
 description = "Demo market for Synthetix V3"
 
-[setting.jackpot]
+[setting.prize]
 defaultValue = "1000000000000000000000"
 
 [setting.ticketCost]
@@ -12,7 +12,7 @@ defaultValue = "1000000000000000000"
 defaultValue = "10000000000000000"
 
 [setting.salt]
-defaultValue = "lottery"
+defaultValue = "snax"
 
 [import.vrf]
 source = "chainlink-vrf:2.0.0"
@@ -20,22 +20,22 @@ source = "chainlink-vrf:2.0.0"
 [import.synthetix]
 source = "synthetix:3.0.4-alpha.0"
 
-[contract.LotteryMarket]
-artifact = "LotteryMarket"
+[contract.NumberGuessingGame]
+artifact = "NumberGuessingGame"
 create2 = true
 args = [
     "<%= imports.synthetix.contracts.CoreProxy.address %>",
     "<%= imports.vrf.imports.linkAggregator.imports.linkToken.contracts.Token.address %>",
     "<%= imports.vrf.contracts.VRFWrapper.address %>",
-    "<%= settings.jackpot %>",
+    "<%= settings.prize %>",
     "<%= settings.ticketCost %>",
     "<%= settings.feePercent %>"
 ]
 depends = ["import.vrf", "import.synthetix"]
 
 [invoke.registerMarket]
-target = ["LotteryMarket"]
+target = ["NumberGuessingGame"]
 func = "registerMarket"
-extra.marketId.event = "LotteryRegistered"
+extra.marketId.event = "MarketRegistered"
 extra.marketId.arg = 0
-depends = ["contract.LotteryMarket"]
+depends = ["contract.NumberGuessingGame"]
